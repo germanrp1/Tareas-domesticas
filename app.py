@@ -39,7 +39,7 @@ usuarios = ["Papá", "Mamá", "Jesús", "Cris", "María"]
 user_name = st.sidebar.selectbox("¿Quién eres?", usuarios)
 perfil = "Padre" if user_name in ["Papá", "Mamá"] else "Hijo"
 
-st.title("🏠 Gestión de Tareas")
+st.title("🏠 GESTI Hogar PRO 🚀")
 
 # --- SECCIÓN 1: ASIGNACIÓN ---
 st.header("📌 Tareas Libres")
