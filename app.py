@@ -11,6 +11,7 @@ def cargar_datos():
     if os.path.exists(CSV_FILE):
         return pd.read_csv(CSV_FILE)
     else:
+        # 10 tareas iniciales equilibradas para 5 personas
         data = {
             'ID': range(1, 11),
             'Tarea': [
@@ -33,9 +34,9 @@ def guardar_datos(df):
 st.set_page_config(page_title="Hogar Pro 2026", page_icon="🏠")
 df = cargar_datos()
 
-# Sidebar para identificación
+# Sidebar para identificación con los nombres de tu familia
 st.sidebar.title("👤 Usuario")
-usuarios = ["Papá", "Mamá", "Hijo 1", "Hijo 2", "Hijo 3"]
+usuarios = ["Papá", "Mamá", "Jesús", "Cris", "María"]
 user_name = st.sidebar.selectbox("¿Quién eres?", usuarios)
 perfil = "Padre" if user_name in ["Papá", "Mamá"] else "Hijo"
 
@@ -92,53 +93,52 @@ if perfil == "Padre":
     with st.expander("⚙️ Herramientas de Administración"):
         # Añadir Tarea
         st.subheader("Añadir Nueva Tarea")
-        n_tarea = st.text_input("Nombre")
+        n_tarea = st.text_input("Nombre de la nueva tarea")
         n_freq = st.selectbox("Frecuencia", ["Diario", "Semanal", "Quincenal"])
-        if st.button("Guardar Tarea"):
+        if st.button("Guardar Nueva Tarea"):
             if n_tarea:
-                nueva_fila = pd.DataFrame([{'ID': df['ID'].max()+1, 'Tarea': n_tarea, 'Frecuencia': n_freq, 'Responsable': 'Sin asignar', 'Estado': 'Pendiente'}])
+                nueva_id = df['ID'].max() + 1 if not df.empty else 1
+                nueva_fila = pd.DataFrame([{'ID': nueva_id, 'Tarea': n_tarea, 'Frecuencia': n_freq, 'Responsable': 'Sin asignar', 'Estado': 'Pendiente'}])
                 df = pd.concat([df, nueva_fila], ignore_index=True)
                 guardar_datos(df)
                 st.rerun()
         
         st.divider()
         
-        # Gestión de Reseteo y Almacenamiento (MODIFICADO SEGÚN TU PETICIÓN)
+        # Gestión de Reseteo (Aquí están los 2 botones)
         st.subheader("Finalizar Período / Reset")
-        col_res1, col_res2 = st.columns(2)
         
-        # Opción 1: Resetear sin guardar (por errores)
-        if col_res1.button("⚠️ Reset por error", help="Limpia responsables y estados SIN guardar nada"):
-            df['Responsable'] = 'Sin asignar'
-            df['Estado'] = 'Pendiente'
-            guardar_datos(df)
-            st.warning("Sistema reseteado sin guardar datos.")
-            st.rerun()
+        # Usamos columnas para forzar que aparezcan los dos botones
+        col_btn1, col_btn2 = st.columns(2)
+        
+        with col_btn1:
+            if st.button("⚠️ Reset por error", use_container_width=True, help="Limpia todo SIN guardar historial"):
+                df['Responsable'] = 'Sin asignar'
+                df['Estado'] = 'Pendiente'
+                guardar_datos(df)
+                st.warning("Reseteado sin guardar.")
+                st.rerun()
 
-        # Opción 2: Guardar historial y limpiar (Solo lo completado)
-        if col_res2.button("💾 Guardar y Finalizar Día", help="Almacena SOLO tareas completadas y limpia la lista"):
-            # Filtramos solo lo que está terminado
-            realizadas = df[(df['Responsable'] != 'Sin asignar') & (df['Estado'] == 'Hecho')].copy()
-            
-            if not realizadas.empty:
-                realizadas['Fecha'] = datetime.now().strftime("%Y-%m-%d")
+        with col_btn2:
+            if st.button("💾 Finalizar y Guardar", use_container_width=True, help="Guarda solo las tareas 'Hechas' en el historial"):
+                # Filtramos solo lo completado
+                realizadas = df[(df['Responsable'] != 'Sin asignar') & (df['Estado'] == 'Hecho')].copy()
                 
-                # Guardado persistente en historial.csv
-                if os.path.exists(HISTORIAL_FILE):
-                    realizadas.to_csv(HISTORIAL_FILE, mode='a', header=False, index=False)
-                else:
-                    realizadas.to_csv(HISTORIAL_FILE, index=False)
-                st.success(f"¡Registradas {len(realizadas)} tareas completadas!")
-            else:
-                st.warning("No hay tareas 'Hechas' para guardar.")
+                if not realizadas.empty:
+                    realizadas['Fecha'] = datetime.now().strftime("%Y-%m-%d")
+                    # Guardado en historial.csv
+                    if os.path.exists(HISTORIAL_FILE):
+                        realizadas.to_csv(HISTORIAL_FILE, mode='a', header=False, index=False)
+                    else:
+                        realizadas.to_csv(HISTORIAL_FILE, index=False)
+                    st.success(f"¡{len(realizadas)} tareas guardadas!")
+                
+                # Limpiamos para el nuevo día
+                df['Responsable'] = 'Sin asignar'
+                df['Estado'] = 'Pendiente'
+                guardar_datos(df)
+                st.rerun()
 
-            # Limpieza para el día siguiente
-            df['Responsable'] = 'Sin asignar'
-            df['Estado'] = 'Pendiente'
-            guardar_datos(df)
-            st.rerun()
-
-    # Visualización opcional del historial acumulado
+    # Historial visual (opcional)
     if os.path.exists(HISTORIAL_FILE):
-        with st.expander("📊 Ver Historial Acumulado"):
-            st.dataframe(pd.read_csv(HISTORIAL_FILE))
+        with st.expander("📊 Ver
