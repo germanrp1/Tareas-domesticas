@@ -1,5 +1,5 @@
 ID,Tarea,Frecuencia,Responsable,Estado
-1,Poner/Vaciar Lavavajillas,Diario,Sin asignar,Pendiente
+1,Poner Lavavajillas,Diario,Sin asignar,Pendiente
 2,Lavadora y Tender,Diario,Sin asignar,Pendiente
 3,Cocinar Comida/Cena,Diario,Sin asignar,Pendiente
 4,Limpiar Cocina,Diario,Sin asignar,Pendiente
@@ -9,3 +9,4 @@ ID,Tarea,Frecuencia,Responsable,Estado
 8,Planchar Ropa,Semanal,Sin asignar,Pendiente
 9,Compra Semanal,Semanal,Sin asignar,Pendiente
 10,Limpiar Cristales y Polvo,Quincenal,Sin asignar,Pendiente
+11,Vaciar Lavavajillas,Diario,Sin asignar,Pendiente
