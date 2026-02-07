@@ -40,6 +40,7 @@ user_name = st.sidebar.selectbox("¿Quién eres?", usuarios)
 perfil = "Padre" if user_name in ["Papá", "Mamá"] else "Hijo"
 
 st.title("🏠 GESTI Hogar PRO 🚀")
+st.markdown("### *Gestión Inteligente del Hogar*") # Una pequeña descripción elegante debajo
 
 # --- SECCIÓN 1: ASIGNACIÓN ---
 st.header("📌 Tareas Libres")
