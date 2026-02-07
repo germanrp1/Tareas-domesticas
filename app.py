@@ -46,6 +46,17 @@ if os.path.exists("GestiPro.png"):
 st.title("🏠 GESTI Hogar PRO 🚀")
 st.markdown("### *Gestión Inteligente del Hogar*") # Una pequeña descripción elegante debajo
 
+
+# --- MODO PRESENTACIÓN (Añadir debajo del título) ---
+st.info("📢 EVENTO ESPECIAL HOY A LAS 17:00")
+st.markdown("""
+    <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; border-left: 5px solid #ff4b4b;">
+        <h2 style="color: #31333F;">🚀 Lanzamiento Oficial: GESTI Hogar PRO</h2>
+        <p>Prepárate para la revolución en la gestión de tareas. 
+        <b>Jesús, Cris, María...</b> el futuro comienza en unas horas.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
 # --- SECCIÓN 1: ASIGNACIÓN ---
 st.header("📌 Tareas Libres")
 disponibles = df[df['Responsable'] == 'Sin asignar']
