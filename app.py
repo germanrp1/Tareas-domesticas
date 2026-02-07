@@ -11,7 +11,6 @@ def cargar_datos():
     if os.path.exists(CSV_FILE):
         return pd.read_csv(CSV_FILE)
     else:
-        # 10 tareas iniciales equilibradas para 5 personas
         data = {
             'ID': range(1, 11),
             'Tarea': [
@@ -34,7 +33,7 @@ def guardar_datos(df):
 st.set_page_config(page_title="Hogar Pro 2026", page_icon="🏠")
 df = cargar_datos()
 
-# Sidebar para identificación con los nombres de tu familia
+# Sidebar con tu familia
 st.sidebar.title("👤 Usuario")
 usuarios = ["Papá", "Mamá", "Jesús", "Cris", "María"]
 user_name = st.sidebar.selectbox("¿Quién eres?", usuarios)
@@ -65,6 +64,7 @@ st.header(f"📋 Panel de {user_name}")
 mis_tareas = df[df['Responsable'] == user_name]
 
 if not mis_tareas.empty:
+    # 1. Tareas Pendientes
     pendientes = mis_tareas[mis_tareas['Estado'] == 'Pendiente']
     if not pendientes.empty:
         st.subheader("⏳ Por hacer")
@@ -79,11 +79,17 @@ if not mis_tareas.empty:
                 guardar_datos(df)
                 st.rerun()
     
+    # 2. Tareas Completadas (Con botón para desmarcar)
     completadas = mis_tareas[mis_tareas['Estado'] == 'Hecho']
     if not completadas.empty:
         st.subheader("🎉 Completadas")
         for i, row in completadas.iterrows():
-            st.write(f"✔️ :gray[~~{row['Tarea']}~~]")
+            col_txt, col_rev = st.columns([4, 1])
+            col_txt.write(f"✔️ :gray[~~{row['Tarea']}~~]")
+            if col_rev.button("↩️", key=f"rev_{i}", help="Volver a poner como pendiente"):
+                df.at[i, 'Estado'] = 'Pendiente'
+                guardar_datos(df)
+                st.rerun()
 else:
     st.info("No tienes tareas asignadas.")
 
@@ -91,9 +97,8 @@ else:
 if perfil == "Padre":
     st.divider()
     with st.expander("⚙️ Herramientas de Administración"):
-        # Añadir Tarea
         st.subheader("Añadir Nueva Tarea")
-        n_tarea = st.text_input("Nombre de la nueva tarea")
+        n_tarea = st.text_input("Nombre de la tarea")
         n_freq = st.selectbox("Frecuencia", ["Diario", "Semanal", "Quincenal"])
         if st.button("Guardar Nueva Tarea"):
             if n_tarea:
@@ -104,42 +109,35 @@ if perfil == "Padre":
                 st.rerun()
         
         st.divider()
-        
-        # Gestión de Reseteo (Aquí están los 2 botones)
         st.subheader("Finalizar Período / Reset")
+        c_res1, c_res2 = st.columns(2)
         
-        # Usamos columnas para forzar que aparezcan los dos botones
-        col_btn1, col_btn2 = st.columns(2)
-        
-        with col_btn1:
-            if st.button("⚠️ Reset por error", use_container_width=True, help="Limpia todo SIN guardar historial"):
+        with c_res1:
+            if st.button("⚠️ Reset por error", use_container_width=True):
                 df['Responsable'] = 'Sin asignar'
                 df['Estado'] = 'Pendiente'
                 guardar_datos(df)
-                st.warning("Reseteado sin guardar.")
                 st.rerun()
 
-        with col_btn2:
-            if st.button("💾 Finalizar y Guardar", use_container_width=True, help="Guarda solo las tareas 'Hechas' en el historial"):
-                # Filtramos solo lo completado
+        with c_res2:
+            if st.button("💾 Finalizar y Guardar", use_container_width=True):
                 realizadas = df[(df['Responsable'] != 'Sin asignar') & (df['Estado'] == 'Hecho')].copy()
-                
                 if not realizadas.empty:
                     realizadas['Fecha'] = datetime.now().strftime("%Y-%m-%d")
-                    # Guardado en historial.csv
                     if os.path.exists(HISTORIAL_FILE):
                         realizadas.to_csv(HISTORIAL_FILE, mode='a', header=False, index=False)
                     else:
                         realizadas.to_csv(HISTORIAL_FILE, index=False)
-                    st.success(f"¡{len(realizadas)} tareas guardadas!")
-                
-                # Limpiamos para el nuevo día
                 df['Responsable'] = 'Sin asignar'
                 df['Estado'] = 'Pendiente'
                 guardar_datos(df)
                 st.rerun()
 
-    # Historial visual (opcional)
+    # Mostrar siempre la tabla general para los padres (para que no "desaparezca")
+    st.subheader("📊 Estado General de la Casa")
+    st.dataframe(df, use_container_width=True)
+
     if os.path.exists(HISTORIAL_FILE):
-        with st.expander("📊 Ver Historial"):
-            st.dataframe(pd.read_csv(HISTORIAL_FILE))
+        with st.expander("📜 Ver Historial Acumulado"):
+            st.dataframe(pd.read_csv(HISTORIAL_FILE), use_container_width=True)
+        
