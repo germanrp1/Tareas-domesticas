@@ -30,7 +30,7 @@ def guardar_datos(df):
     df.to_csv(CSV_FILE, index=False)
 
 # --- INICIO DE LA APP ---
-st.set_page_config(page_title="Hogar Pro 2026", page_icon="🏠")
+st.set_page_config(page_title="GESTI Hogar Pro", page_icon="🏠")
 df = cargar_datos()
 
 # Sidebar con tu familia
