@@ -141,4 +141,5 @@ if perfil == "Padre":
 
     # Historial visual (opcional)
     if os.path.exists(HISTORIAL_FILE):
-        with st.expander("📊 Ver
+        with st.expander("📊 Ver Historial"):
+            st.dataframe(pd.read_csv(HISTORIAL_FILE))
