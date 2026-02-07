@@ -36,7 +36,7 @@ df = cargar_datos()
 
 # Sidebar para identificación
 st.sidebar.title("👤 Usuario")
-usuarios = ["Papá", "Mamá", "Hijo 1", "Hijo 2", "Hijo 3"]
+usuarios = ["Papá", "Mamá", "Jesús", "Cris", "María"]
 user_name = st.sidebar.selectbox("¿Quién eres?", usuarios)
 perfil = "Padre" if user_name in ["Papá", "Mamá"] else "Hijo"
 st.sidebar.info(f"Conectado como: **{perfil}**")
