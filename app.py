@@ -61,20 +61,27 @@ else:
 
 st.divider()
 
-# --- SECCIÓN 2: MI PANEL (Pendientes y Hechas) ---
+# --- SECCIÓN 2: MI PANEL ---
 st.header(f"📋 Panel de {user_name}")
 mis_tareas = df[df['Responsable'] == user_name]
 
 if not mis_tareas.empty:
-    # Subsección Pendientes
     pendientes = mis_tareas[mis_tareas['Estado'] == 'Pendiente']
     if not pendientes.empty:
         st.subheader("⏳ Por hacer")
         for i, row in pendientes.iterrows():
-            if st.button(f"✅ Marcar como hecha: {row['Tarea']}", key=f"done_{i}"):
+            col_a, col_b = st.columns([3, 1])
+            if col_a.button(f"✅ Hecha: {row['Tarea']}", key=f"done_{i}"):
                 df.at[i, 'Estado'] = 'Hecho'
                 guardar_datos(df)
                 st.rerun()
+            
+            # BOTÓN PARA DESASIGNAR
+            if col_b.button("🔓 Liberar", key=f"free_{i}", help="Devolver a la lista común"):
+                df.at[i, 'Responsable'] = 'Sin asignar'
+                guardar_datos(df)
+                st.rerun()
+
     
     # Subsección Hechas (Diferenciadas visualmente)
     completadas = mis_tareas[mis_tareas['Estado'] == 'Hecho']
