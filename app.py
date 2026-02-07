@@ -39,6 +39,10 @@ usuarios = ["Papá", "Mamá", "Jesús", "Cris", "María"]
 user_name = st.sidebar.selectbox("¿Quién eres?", usuarios)
 perfil = "Padre" if user_name in ["Papá", "Mamá"] else "Hijo"
 
+# --- CABECERA CON LOGO Y TÍTULO ---
+# Mostramos el logo que subiste a GitHub
+if os.path.exists("GestiPro.png"):
+    st.image("GestiPro.png", width=150) # Puedes ajustar el tamaño cambiando el 150
 st.title("🏠 GESTI Hogar PRO 🚀")
 st.markdown("### *Gestión Inteligente del Hogar*") # Una pequeña descripción elegante debajo
 
