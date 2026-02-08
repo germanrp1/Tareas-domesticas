@@ -9,12 +9,13 @@ st.set_page_config(page_title="GESTI Hogar PRO", page_icon="🏠")
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def cargar_datos_seguro():
-    """Carga los datos como en el test de prueba que funcionó"""
+    """Carga los datos de la primera pestaña (donde está 'Datos')"""
     return conn.read(ttl=0)
 
 def guardar_datos_en_nube(df_nuevo):
-    """Guarda especificando la pestaña 'Datos'"""
-    conn.update(worksheet="Datos", data=df_nuevo)
+    """Guarda los datos sin especificar pestaña para evitar el Error 400"""
+    # Al no poner worksheet, actualizará la pestaña principal por defecto
+    conn.update(data=df_nuevo)
 
 # --- INICIALIZACIÓN DE SESIÓN ---
 if 'df' not in st.session_state:
@@ -31,14 +32,11 @@ user_name = st.sidebar.selectbox("¿Quién eres?", usuarios)
 perfil = "Padre" if user_name in ["Papá", "Mamá"] else "Hijo"
 
 st.title("🏠 GESTI Hogar PRO 🚀")
-st.success("✅ ¡CONECTADO! GESTI Hogar PRO está en línea.")
 
 # 1. SECCIÓN DE ASIGNACIÓN
 st.header("📌 Tareas Libres")
 df_actual = st.session_state.df
 filtro_para = ['Padres', 'Todos'] if perfil == "Padre" else ['Hijos', 'Todos']
-
-# Filtramos las tareas que no tienen responsable
 visibles = df_actual[(df_actual['Responsable'] == 'Sin asignar') & (df_actual['Para'].isin(filtro_para))]
 
 if not visibles.empty:
@@ -53,7 +51,7 @@ if not visibles.empty:
                 guardar_datos_en_nube(st.session_state.df)
                 st.rerun()
 else:
-    st.info("No hay tareas libres para asignar.")
+    st.info("No hay tareas libres disponibles.")
 
 # 2. PANEL PERSONAL
 st.header(f"📋 Panel de {user_name}")
@@ -75,7 +73,6 @@ for i, row in pendientes.iterrows():
 # 3. CONTROL DE PADRES (ADMIN)
 if perfil == "Padre":
     with st.expander("⚙️ Herramientas de Administración"):
-        # Nueva Tarea
         st.subheader("Añadir Nueva Tarea")
         n_tarea = st.text_input("Nombre de la tarea")
         n_para = st.selectbox("¿Para quién?", ["Todos", "Hijos", "Padres"])
@@ -90,26 +87,22 @@ if perfil == "Padre":
         st.divider()
         st.subheader("Opciones de Reseteo")
 
-        # --- MODO 1: RESETEO DE PRUEBA (Sin guardar) ---
+        # MODO 1: RESETEO DE PRUEBA (Sin guardar cambios en el Excel)
         if st.button("🔄 Reseteo de PRUEBA (NO guarda en Excel)"):
-            # Recargamos la sesión desde el Excel original (descartamos tareas nuevas y cambios)
             st.session_state.df = cargar_datos_seguro()
-            st.warning("⚠️ Datos restaurados. Se han perdido las tareas nuevas no guardadas.")
+            st.warning("⚠️ Datos restaurados. No se han modificado las tareas de la hoja de cálculo.")
             st.rerun()
 
-        # --- MODO 2: REINICIO PRÓXIMO DÍA (Guardando todo) ---
+        # MODO 2: REINICIO PRÓXIMO DÍA (Guardando cambios y nuevas tareas)
         if st.button("💾 Reinicio PRÓXIMO DÍA (SÍ guarda en Excel)"):
-            # Reiniciamos estados pero mantenemos las tareas (incluidas las nuevas creadas)
             st.session_state.df['Responsable'] = 'Sin asignar'
             st.session_state.df['Estado'] = 'Pendiente'
             st.session_state.df['Franja'] = '-'
-            # Guardamos la tabla completa en el Excel
             guardar_datos_en_nube(st.session_state.df)
-            st.success("✅ Reinicio completado. Nuevas tareas y estados guardados en Drive.")
+            st.success("✅ Tareas reiniciadas y cambios guardados en el histórico.")
             st.rerun()
 
 # --- VISTA GLOBAL ---
 st.divider()
-st.subheader("📊 Estado Global de la Casa")
+st.subheader("📊 Estado General")
 st.dataframe(st.session_state.df[['Tarea', 'Responsable', 'Franja', 'Estado']], use_container_width=True)
-
