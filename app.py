@@ -1,26 +1,22 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
-import pandas as pd
-from datetime import datetime
-import os
 
-# --- CONFIGURACIÓN DE LA APP ---
-st.set_page_config(page_title="GESTI Hogar PRO", page_icon="🏠")
-
-# Conexión con Google Sheets
+# Conexión usando el Secret
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def cargar_datos():
-    # ttl=0 para que los cambios en el Excel se vean al recargar la app
-    # Cambia "Hoja 1" si en tu Drive la pestaña tiene otro nombre
-    return conn.read(worksheet="Datos", ttl=0)
+    # Al llamar a read() sin especificar worksheet, 
+    # Streamlit cargará la primera pestaña que encuentre (tu nueva pestaña 'Datos')
+    return conn.read(ttl=0)
 
-def guardar_datos(df):
-    conn.update(worksheet="Datos", data=df)
+def guardar_datos(df_nuevo):
+    # Aquí sí especificamos el nuevo nombre limpio
+    conn.update(worksheet="Datos", data=df_nuevo)
 
-# Carga de datos desde la nube
+# --- PRUEBA ---
 try:
     df = cargar_datos()
+    st.success("🚀 ¡CONECTADO! GESTI Hogar PRO está en línea.")
+    st.dataframe(df)
 except Exception as e:
-    st.error(f"Error al conectar con Google Sheets: {e}")
-    st.stop()
+    st.error(f"Error 400 resuelto, pero surgió esto: {e}")
