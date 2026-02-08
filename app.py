@@ -12,11 +12,11 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def cargar_datos():
     # Lee la hoja de cálculo (ttl=0 para que no use caché y los cambios sean instantáneos)
-    return conn.read(worksheet="Hoja1", ttl=0)
+    return conn.read(worksheet="Hoja 1", ttl=0)
 
 def guardar_datos(df):
     # Actualiza la hoja de cálculo en Drive
-    conn.update(worksheet="Hoja1", data=df)
+    conn.update(worksheet="Hoja 1", data=df)
 
 # Carga inicial
 df = cargar_datos()
