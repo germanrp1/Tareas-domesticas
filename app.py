@@ -53,25 +53,57 @@ elif not mis_tareas.empty and mis_pendientes.empty:
     st.balloons()
     st.success(f"👏 **ENHORABUENA {user_name}, todas tus tareas han sido realizadas, ¡BUEN TRABAJO {user_name}!**")
 
-# --- FUNCION DE ASIGNACIÓN ESPECIAL ---
+# --- FUNCIÓN DE ASIGNACIÓN CORREGIDA ---
 def ejecutar_asignacion(index, franja):
+    # Cargamos copia fresca para evitar conflictos de sesión
     df_temp = st.session_state.df.copy()
     row = df_temp.loc[index]
     
     if row['Tipo'] == 'Contador':
         if row['Cantidad'] > 0:
-            df_temp.at[index, 'Cantidad'] -= 1
+            # 1. Descontamos de la tarea original
+            df_temp.at[index, 'Cantidad'] = int(row['Cantidad']) - 1
+            # 2. Creamos la tarea personal (copia)
             nueva_id = int(df_temp['ID'].max() + 1)
-            nueva = pd.DataFrame([[nueva_id, row['Tarea'], 'Puntual', 'Simple', row['Para'], user_name, 'Pendiente', franja, 1]], columns=df_temp.columns)
-            df_temp = pd.concat([df_temp, nueva], ignore_index=True)
+            nueva_fila = {
+                'ID': nueva_id,
+                'Tarea': row['Tarea'],
+                'Frecuencia': 'Puntual', # Para que desaparezca al resetear el día
+                'Tipo': 'Simple',
+                'Para': row['Para'],
+                'Responsable': user_name,
+                'Estado': 'Pendiente',
+                'Franja': franja,
+                'Cantidad': 1
+            }
+            df_temp = pd.concat([df_temp, pd.DataFrame([nueva_fila])], ignore_index=True)
+            st.success(f"Asignada 1 unidad de {row['Tarea']}")
+        else:
+            st.warning("Ya no quedan repeticiones de esta tarea.")
+            return
+
     elif row['Tipo'] == 'Multi-Franja':
         nueva_id = int(df_temp['ID'].max() + 1)
-        nueva = pd.DataFrame([[nueva_id, row['Tarea'], 'Puntual', 'Simple', row['Para'], user_name, 'Pendiente', franja, 1]], columns=df_temp.columns)
-        df_temp = pd.concat([df_temp, nueva], ignore_index=True)
-    else:
+        nueva_fila = {
+            'ID': nueva_id,
+            'Tarea': row['Tarea'],
+            'Frecuencia': 'Puntual',
+            'Tipo': 'Simple',
+            'Para': row['Para'],
+            'Responsable': user_name,
+            'Estado': 'Pendiente',
+            'Franja': franja,
+            'Cantidad': 1
+        }
+        df_temp = pd.concat([df_temp, pd.DataFrame([nueva_fila])], ignore_index=True)
+        st.success(f"Te has asignado {row['Tarea']} para la {franja}")
+        
+    else: # Caso Simple
         df_temp.at[index, 'Responsable'] = user_name
         df_temp.at[index, 'Franja'] = franja
-    
+
+    # Actualizar estado y persistir en Google Sheets
+    st.session_state.df = df_temp
     guardar_datos(df_temp)
     st.rerun()
 
