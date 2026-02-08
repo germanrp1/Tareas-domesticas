@@ -2,30 +2,28 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# --- CONFIGURACIÓN DE LA APP ---
 st.set_page_config(page_title="GESTI Hogar PRO", page_icon="🏠")
 
-# --- CONEXIÓN ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-def cargar_datos_seguro():
-    """Carga los datos de la primera pestaña (donde está 'Datos')"""
+def cargar_datos():
+    # Leemos la primera hoja disponible (Datos)
     return conn.read(ttl=0)
 
-def guardar_datos_en_nube(df_nuevo):
-    """Guarda los datos sin especificar pestaña para evitar el Error 400"""
-    # Al no poner worksheet, actualizará la pestaña principal por defecto
-    conn.update(data=df_nuevo)
-
-# --- INICIALIZACIÓN DE SESIÓN ---
-if 'df' not in st.session_state:
+def guardar_datos(df_nuevo):
+    """Intenta guardar y captura si falta el permiso de escritura"""
     try:
-        st.session_state.df = cargar_datos_seguro()
+        # Intentamos el guardado directo
+        conn.update(data=df_nuevo)
+        st.success("☁️ Guardado en Google Sheets")
     except Exception as e:
-        st.error(f"Error de conexión: {e}")
-        st.stop()
+        st.error(f"⚠️ Error de escritura: {e}")
+        st.info("Para poder guardar, la hoja debe estar compartida con permisos de EDITOR para cualquier persona con el enlace, o configurar una Service Account.")
 
-# --- INTERFAZ ---
+if 'df' not in st.session_state:
+    st.session_state.df = cargar_datos()
+
+# --- LÓGICA DE USUARIOS ---
 st.sidebar.title("👤 Usuario")
 usuarios = ["Papá", "Mamá", "Jesús", "Cris", "María"]
 user_name = st.sidebar.selectbox("¿Quién eres?", usuarios)
@@ -33,25 +31,19 @@ perfil = "Padre" if user_name in ["Papá", "Mamá"] else "Hijo"
 
 st.title("🏠 GESTI Hogar PRO 🚀")
 
-# 1. SECCIÓN DE ASIGNACIÓN
+# 1. ASIGNACIÓN
 st.header("📌 Tareas Libres")
-df_actual = st.session_state.df
-filtro_para = ['Padres', 'Todos'] if perfil == "Padre" else ['Hijos', 'Todos']
-visibles = df_actual[(df_actual['Responsable'] == 'Sin asignar') & (df_actual['Para'].isin(filtro_para))]
+df = st.session_state.df
+filtro = ['Padres', 'Todos'] if perfil == "Padre" else ['Hijos', 'Todos']
+visibles = df[(df['Responsable'] == 'Sin asignar') & (df['Para'].isin(filtro))]
 
 if not visibles.empty:
     for i, row in visibles.iterrows():
-        st.write(f"**{row['Tarea']}**")
-        cols = st.columns(4)
-        franjas = ["Mañana", "Mediodía", "Tarde", "Tarde/Noche"]
-        for idx, f in enumerate(franjas):
-            if cols[idx].button(f, key=f"btn_{f}_{i}"):
-                st.session_state.df.at[i, 'Responsable'] = user_name
-                st.session_state.df.at[i, 'Franja'] = f
-                guardar_datos_en_nube(st.session_state.df)
-                st.rerun()
-else:
-    st.info("No hay tareas libres disponibles.")
+        if st.button(f"📍 {row['Tarea']}", key=f"t_{i}"):
+            st.session_state.df.at[i, 'Responsable'] = user_name
+            st.session_state.df.at[i, 'Estado'] = 'Pendiente'
+            guardar_datos(st.session_state.df)
+            st.rerun()
 
 # 2. PANEL PERSONAL
 st.header(f"📋 Panel de {user_name}")
@@ -59,50 +51,29 @@ mis_tareas = st.session_state.df[st.session_state.df['Responsable'] == user_name
 pendientes = mis_tareas[mis_tareas['Estado'] == 'Pendiente']
 
 for i, row in pendientes.iterrows():
-    c1, c2 = st.columns([3, 1])
-    if c1.button(f"✅ {row['Tarea']} ({row['Franja']})", key=f"done_{i}"):
+    if st.button(f"✅ Hecho: {row['Tarea']}", key=f"done_{i}"):
         st.session_state.df.at[i, 'Estado'] = 'Hecho'
-        guardar_datos_en_nube(st.session_state.df)
-        st.rerun()
-    if c2.button("🔓", key=f"free_{i}"):
-        st.session_state.df.at[i, 'Responsable'] = 'Sin asignar'
-        st.session_state.df.at[i, 'Franja'] = '-'
-        guardar_datos_en_nube(st.session_state.df)
+        guardar_datos(st.session_state.df)
         st.rerun()
 
-# 3. CONTROL DE PADRES (ADMIN)
+# 3. CONTROL DE PADRES (LOS 2 RESETEOS)
 if perfil == "Padre":
-    with st.expander("⚙️ Herramientas de Administración"):
-        st.subheader("Añadir Nueva Tarea")
-        n_tarea = st.text_input("Nombre de la tarea")
-        n_para = st.selectbox("¿Para quién?", ["Todos", "Hijos", "Padres"])
-        if st.button("Añadir a la lista"):
-            if n_tarea:
-                nueva_id = int(st.session_state.df['ID'].max() + 1) if not st.session_state.df.empty else 1
-                nueva_fila = pd.DataFrame([[nueva_id, n_tarea, 'Diario', n_para, 'Sin asignar', 'Pendiente', '-']], 
-                                          columns=st.session_state.df.columns)
-                st.session_state.df = pd.concat([st.session_state.df, nueva_fila], ignore_index=True)
-                st.toast("Tarea añadida localmente.")
-
-        st.divider()
-        st.subheader("Opciones de Reseteo")
-
-        # MODO 1: RESETEO DE PRUEBA (Sin guardar cambios en el Excel)
-        if st.button("🔄 Reseteo de PRUEBA (NO guarda en Excel)"):
-            st.session_state.df = cargar_datos_seguro()
-            st.warning("⚠️ Datos restaurados. No se han modificado las tareas de la hoja de cálculo.")
+    with st.expander("⚙️ Administración"):
+        # RESETEO 1: PRUEBA
+        if st.button("🔄 Reseteo de PRUEBA (Sin guardar)"):
+            st.session_state.df = cargar_datos() # Solo recarga, no modifica el excel
+            st.warning("Datos de la lista reiniciados localmente (sin cambios en Drive).")
             st.rerun()
 
-        # MODO 2: REINICIO PRÓXIMO DÍA (Guardando cambios y nuevas tareas)
-        if st.button("💾 Reinicio PRÓXIMO DÍA (SÍ guarda en Excel)"):
+        # RESETEO 2: REAL
+        if st.button("💾 Reinicio PRÓXIMO DÍA (Guardar todo)"):
             st.session_state.df['Responsable'] = 'Sin asignar'
             st.session_state.df['Estado'] = 'Pendiente'
             st.session_state.df['Franja'] = '-'
-            guardar_datos_en_nube(st.session_state.df)
-            st.success("✅ Tareas reiniciadas y cambios guardados en el histórico.")
+            # Aquí sí intentamos actualizar el Excel con las nuevas tareas si las hay
+            guardar_datos(st.session_state.df)
+            st.success("¡Día reiniciado y guardado!")
             st.rerun()
 
-# --- VISTA GLOBAL ---
 st.divider()
-st.subheader("📊 Estado General")
-st.dataframe(st.session_state.df[['Tarea', 'Responsable', 'Franja', 'Estado']], use_container_width=True)
+st.dataframe(st.session_state.df[['Tarea', 'Responsable', 'Estado']])
