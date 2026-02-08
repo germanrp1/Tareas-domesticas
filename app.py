@@ -8,13 +8,33 @@ import os
 st.set_page_config(page_title="GESTI Hogar PRO", page_icon="🏠")
 
 # --- CONEXIÓN ROBUSTA CON GOOGLE SHEETS ---
+#try:
+#    # Extraemos la URL de los secrets para pasarla directamente a la conexión
+#    url_gsheet = st.secrets["connections"]["gsheets"]["spreadsheet"]
+#    conn = st.connection("gsheets", type=GSheetsConnection, spreadsheet=url_gsheet)
+#except Exception:
+#    st.error("Error al leer la configuración de Secrets. Revisa el panel de Streamlit.")
+#    st.stop()
+# --- CONEXIÓN ROBUSTA CON GOOGLE SHEETS ---
 try:
-    # Extraemos la URL de los secrets para pasarla directamente a la conexión
-    url_gsheet = st.secrets["connections"]["gsheets"]["spreadsheet"]
+    # Intento 1: Acceso jerárquico estándar
+    if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+        url_gsheet = st.secrets["connections"]["gsheets"]["spreadsheet"]
+    # Intento 2: Acceso directo (por si Streamlit lo aplanó)
+    elif "spreadsheet" in st.secrets:
+        url_gsheet = st.secrets["spreadsheet"]
+    else:
+        # Si no lo encuentra, mostramos qué es lo que SÍ está viendo para depurar
+        st.error("No se encuentra 'spreadsheet' en los Secrets.")
+        st.write("Claves detectadas:", list(st.secrets.keys()))
+        st.stop()
+    
     conn = st.connection("gsheets", type=GSheetsConnection, spreadsheet=url_gsheet)
-except Exception:
-    st.error("Error al leer la configuración de Secrets. Revisa el panel de Streamlit.")
+except Exception as e:
+    st.error(f"Error técnico al configurar la conexión: {e}")
     st.stop()
+
+
 
 def cargar_datos():
     # Usamos el nombre de la pestaña que acabamos de limpiar de espacios
