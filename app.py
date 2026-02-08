@@ -16,7 +16,7 @@ def cargar_datos():
     return conn.read(worksheet="Hoja 1", ttl=0)
 
 def guardar_datos(df):
-    conn.update(worksheet="Hoja 1", data=df)
+    conn.update(worksheet="Hoja1", data=df)
 
 # Carga de datos desde la nube
 try:
