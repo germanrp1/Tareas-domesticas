@@ -13,10 +13,10 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 def cargar_datos():
     # ttl=0 para que los cambios en el Excel se vean al recargar la app
     # Cambia "Hoja 1" si en tu Drive la pestaña tiene otro nombre
-    return conn.read(worksheet="Hoja1", ttl=0)
+    return conn.read(worksheet="Datos", ttl=0)
 
 def guardar_datos(df):
-    conn.update(worksheet="Hoja1", data=df)
+    conn.update(worksheet="Datos", data=df)
 
 # Carga de datos desde la nube
 try:
