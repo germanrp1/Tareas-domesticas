@@ -133,16 +133,20 @@ if perfil == "Padre":
 
         # MODO 2: REINICIO REAL (Según tus instrucciones del 2026-02-08)
         if st.button("💾 REINICIO PARA PRÓXIMO DÍA (Guardar todo)"):
-            # 1. Filtramos las tareas: Las 'Puntuales' se eliminan, las 'Persistentes' se quedan
+            # 1. Mantenemos las persistentes y las nuevas que hayamos creado en esta sesión
+            # (Si son puntuales, se irán; si son persistentes, se quedan)
             df_reinicio = st.session_state.df[st.session_state.df['Frecuencia'] == 'Persistente'].copy()
-            # 2. Reiniciamos estados
+            
+            # 2. LIBERAMOS LA LISTA COMPLETAMENTE
+            # Esto hace que las tareas vuelvan a aparecer en "Tareas Libres"
             df_reinicio['Responsable'] = 'Sin asignar'
             df_reinicio['Estado'] = 'Pendiente'
             df_reinicio['Franja'] = '-'
-            # 3. Guardamos en el Excel
+            
+            # 3. Actualizamos la sesión y el Excel
             st.session_state.df = df_reinicio
             guardar_datos(st.session_state.df)
-            st.success("✅ ¡Día reiniciado! Tareas puntuales borradas y persistentes listas.")
+            st.success("✅ ¡Día reiniciado! Toda la lista se ha liberado y está disponible de nuevo.")
             st.rerun()
 
 # --- VISTA GLOBAL ---
