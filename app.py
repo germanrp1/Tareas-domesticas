@@ -3,271 +3,236 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import time
 
-# ==========================================
-# 1. CONFIGURACIÓN E INTERFAZ DE USUARIO
-# ==========================================
+# ==============================================================================
+# 1. CONFIGURACIÓN DE LA PÁGINA Y ESTILOS
+# ==============================================================================
 st.set_page_config(
-    page_title="GESTI Hogar PRO 6.5 Premium", 
+    page_title="GESTI Hogar PRO 6.6", 
     page_icon="🏠", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo personalizado para mejorar la visibilidad de las alertas
+# Estilo para que los avisos de error y éxito sean más legibles
 st.markdown("""
     <style>
-    .stAlert { border-radius: 10px; border: 1px solid #ff4b4b; }
-    .main { background-color: #fafafa; }
+    .stAlert { border-radius: 12px; }
+    .stButton>button { border-radius: 8px; transition: 0.3s; }
+    .stButton>button:hover { transform: scale(1.05); }
     </style>
     """, unsafe_allow_html=True)
 
-# ==========================================
-# 2. SISTEMA DE CONEXIÓN A LA NUBE
-# ==========================================
+# ==============================================================================
+# 2. MOTOR DE CONEXIÓN (FORZADO A MODO PÚBLICO)
+# ==============================================================================
+# Creamos la conexión. Importante: Al no pasarle credenciales, usará el enlace público.
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-def cargar_datos_maestros():
-    """Llamada a la base de datos de Google Sheets sin caché."""
-    return conn.read(ttl=0)
+def cargar_datos_frescos():
+    """Carga los datos ignorando cualquier caché previa del navegador."""
+    try:
+        # ttl=0 asegura que no use datos guardados antiguos
+        return conn.read(ttl=0)
+    except Exception as e:
+        st.error(f"Error al conectar con la hoja: {e}")
+        return pd.DataFrame()
 
-def sincronizar_nube(df_actualizado):
+def guardar_cambios_nube(df_nuevo):
     """
-    Envía los cambios a la hoja de cálculo. 
-    Incluye limpieza de datos para evitar errores de tipo en celdas públicas.
+    Sincroniza el DataFrame con la hoja de cálculo.
+    Si da el error de 'Service Account', intentamos limpiar la sesión.
     """
     try:
-        # Aseguramos integridad de tipos antes de subir
-        df_actualizado['ID'] = pd.to_numeric(df_actualizado['ID']).astype(int)
-        if 'Cantidad' in df_actualizado.columns:
-            df_actualizado['Cantidad'] = pd.to_numeric(df_actualizado['Cantidad']).fillna(1).astype(int)
+        # Limpieza de tipos de datos para que Google Sheets no se queje
+        df_nuevo['ID'] = pd.to_numeric(df_nuevo['ID'], errors='coerce').fillna(0).astype(int)
+        if 'Cantidad' in df_nuevo.columns:
+            df_nuevo['Cantidad'] = pd.to_numeric(df_nuevo['Cantidad'], errors='coerce').fillna(1).astype(int)
         
-        # Eliminamos valores nulos que corrompen la escritura en modo público
-        df_final = df_actualizado.fillna("-")
+        # Reseteamos el índice para que la tabla en el Excel sea continua
+        df_final = df_nuevo.reset_index(drop=True).fillna("-")
         
-        # Ejecución del comando de actualización
+        # Ejecución de la actualización
         conn.update(data=df_final)
         st.session_state.df = df_final
         return True
-    except Exception as error_msg:
-        # Captura el error de 'Public Spreadsheet' que vimos en la imagen
-        st.error(f"⚠️ ERROR DE SINCRONIZACIÓN: {error_msg}")
-        st.warning("👉 SOLUCIÓN: Si el error persiste, abre tu Excel y BORRA al usuario 'streamlit-app@...' de la lista de compartir. Deja solo 'Cualquier persona con el enlace'.")
+    except Exception as e:
+        st.error(f"❌ Error de persistencia: {e}")
+        st.info("💡 Si acabas de quitar al usuario de Google, pulsa 'R' en tu teclado o reinicia la pestaña para limpiar la caché del navegador.")
         return False
 
-# Carga inicial de datos
-if 'df' not in st.session_state:
-    with st.spinner("Conectando con la base de datos familiar..."):
-        st.session_state.df = cargar_datos_maestros()
+# Inicialización del estado global de la aplicación
+if 'df' not in st.session_state or st.sidebar.button("🔄 Forzar Recarga"):
+    st.session_state.df = cargar_datos_frescos()
 
-# ==========================================
-# 3. IDENTIFICACIÓN Y PERFILES FAMILIARES
-# ==========================================
-st.sidebar.title("👤 Panel de Control de Usuario")
-lista_familia = ["Papá", "Mamá", "Jesús", "Cris", "María"]
-nombre_seleccionado = st.sidebar.selectbox("¿Quién está usando la App?", lista_familia)
-es_padre = nombre_seleccionado in ["Papá", "Mamá"]
-perfil_tipo = "Padre/Administrador" if es_padre else "Hijo/Usuario"
+# ==============================================================================
+# 3. GESTIÓN DE PERFILES DE USUARIO
+# ==============================================================================
+st.sidebar.title("👥 Acceso Familiar")
+usuarios_disponibles = ["Papá", "Mamá", "Jesús", "Cris", "María"]
+user_actual = st.sidebar.selectbox("Selecciona tu nombre:", usuarios_disponibles)
+es_admin = user_actual in ["Papá", "Mamá"]
+rango_texto = "Administrador" if es_admin else "Usuario Estándar"
 
 st.sidebar.divider()
-st.sidebar.markdown(f"**Usuario Activo:** {nombre_seleccionado}")
-st.sidebar.markdown(f"**Rango:** {perfil_tipo}")
-st.sidebar.write("---")
-st.sidebar.caption("v6.5 - Versión de alta capacidad")
+st.sidebar.markdown(f"**Usuario:** {user_actual}")
+st.sidebar.markdown(f"**Rol:** {rango_texto}")
+st.sidebar.caption("Sincronización: Activa (Modo Público)")
 
-st.title("🏠 GESTI Hogar PRO 6.5 🚀")
-st.write(f"¡Hola **{nombre_seleccionado}**! Gestiona las tareas de casa de forma eficiente y colaborativa.")
+st.title("🏠 GESTI Hogar PRO 6.6 🚀")
+st.markdown(f"Bienvenido de nuevo, **{user_actual}**. Aquí tienes el estado de las tareas.")
 
-# ==========================================
-# 4. LÓGICA DE FILTRADO Y PROGRESO
-# ==========================================
-df_main = st.session_state.df
-filtro_rol = ['Padres', 'Todos'] if es_padre else ['Hijos', 'Todos']
+# ==============================================================================
+# 4. PROCESAMIENTO DE TAREAS Y FILTROS
+# ==============================================================================
+df = st.session_state.df
+# Determinamos qué tareas puede ver/asignarse según su grupo
+filtro_grupo = ['Padres', 'Todos'] if es_admin else ['Hijos', 'Todos']
 
-# Extracción de subconjuntos de datos para las vistas
-tareas_libres_raw = df_main[(df_main['Responsable'] == 'Sin asignar') & (df_main['Para'].isin(filtro_rol))]
-mis_tareas_pendientes = df_main[(df_main['Responsable'] == nombre_seleccionado) & (df_main['Estado'] == 'Pendiente')]
-mis_tareas_hechas = df_main[(df_main['Responsable'] == nombre_seleccionado) & (df_main['Estado'] == 'Hecho')]
+# Filtramos tareas para las diferentes secciones
+libres_total = df[(df['Responsable'] == 'Sin asignar') & (df['Para'].isin(filtro_grupo))]
+mis_pendientes = df[(df['Responsable'] == user_actual) & (df['Estado'] == 'Pendiente')]
+mis_hechas = df[(df['Responsable'] == user_actual) & (df['Estado'] == 'Hecho')]
 
-# Comprobación de fin de jornada
-if not tareas_libres_raw.empty == False and not mis_tareas_pendientes.empty == True:
-    st.balloons()
-    st.success(f"🎊 **¡FANTÁSTICO {nombre_seleccionado.upper()}!** No tienes tareas pendientes y el panel está despejado.")
+# Comprobación de éxito total
+if libres_total.empty and not mis_pendientes.empty:
+    st.success("✨ ¡Genial! No quedan tareas libres para tu grupo.")
 
-# ==========================================
-# 5. PANEL DE ASIGNACIÓN (TAREAS LIBRES)
-# ==========================================
-st.header("📌 Tareas Disponibles para Asignar")
+# ==============================================================================
+# 5. SECCIÓN DE ASIGNACIÓN (TAREAS DISPONIBLES)
+# ==============================================================================
+st.header("📌 Tareas Libres")
 
-# Cálculo de pendientes reales (Simples + Unidades de contadores)
-total_libres = len(tareas_libres_raw[~tareas_libres_raw['Tipo'].isin(['Contador', 'Multi-Franja'])])
-unidades_disponibles = int(tareas_libres_raw[tareas_libres_raw['Tipo'].isin(['Contador', 'Multi-Franja'])]['Cantidad'].sum() if not tareas_libres_raw.empty else 0)
+# Conteo de tareas individuales y turnos de contadores
+conteo_simples = len(libres_total[~libres_total['Tipo'].isin(['Contador', 'Multi-Franja'])])
+conteo_unidades = int(libres_total[libres_total['Tipo'].isin(['Contador', 'Multi-Franja'])]['Cantidad'].sum() if not libres_total.empty else 0)
 
-if (total_libres + unidades_disponibles) > 0:
-    for idx_row, fila in tareas_libres_raw.iterrows():
-        # Ignorar contadores vacíos
-        if fila['Tipo'] in ['Contador', 'Multi-Franja'] and int(fila['Cantidad']) <= 0:
+if (conteo_simples + conteo_unidades) > 0:
+    for i, row in libres_total.iterrows():
+        # Saltamos contadores agotados
+        if row['Tipo'] in ['Contador', 'Multi-Franja'] and int(row['Cantidad']) <= 0:
             continue
             
-        c_label, c_btns = st.columns([1.5, 2])
+        c_desc, c_btn_group = st.columns([1.5, 2])
         
-        texto_display = f"**{fila['Tarea']}**"
-        if fila['Tipo'] in ['Contador', 'Multi-Franja']:
-            texto_display += f" *(Quedan: {int(fila['Cantidad'])} unidades)*"
+        txt_tarea = f"**{row['Tarea']}**"
+        if row['Tipo'] in ['Contador', 'Multi-Franja']:
+            txt_tarea += f" *(Disponibles: {int(row['Cantidad'])} unidades)*"
         
-        c_label.write(texto_display)
+        c_desc.write(txt_tarea)
         
-        # Botones de selección de turno
-        col_m, col_md, col_t, col_n = c_btns.columns(4)
-        mapeo_franjas = [("Mañana", col_m), ("Mediodía", col_md), ("Tarde", col_t), ("Noche", col_n)]
+        # Botones de franja horaria
+        f_cols = c_btn_group.columns(4)
+        franjas_nombres = ["Mañana", "Mediodía", "Tarde", "Noche"]
         
-        for nombre_f, columna_f in mapeo_franjas:
-            if columna_f.button(nombre_f, key=f"btn_{nombre_f}_{idx_row}"):
-                st.toast(f"⚡ Procesando: {fila['Tarea']}...", icon="⏳")
+        for idx_f, nombre_f in enumerate(franjas_nombres):
+            if f_cols[idx_f].button(nombre_f, key=f"asig_{nombre_f}_{i}"):
+                st.toast(f"⏳ Asignando '{row['Tarea']}'...", icon="⚡")
                 
-                df_proceso = st.session_state.df.copy()
+                df_temp = st.session_state.df.copy()
                 
-                if fila['Tipo'] in ['Contador', 'Multi-Franja']:
-                    # Lógica de reducción de stock
-                    df_proceso.at[idx_row, 'Cantidad'] = int(fila['Cantidad']) - 1
-                    # Si es multifranja y llegamos a 0, lo ocultamos
-                    if fila['Tipo'] == 'Multi-Franja' and df_proceso.at[idx_row, 'Cantidad'] == 0:
-                        df_proceso.at[idx_row, 'Responsable'] = 'Asignado'
+                if row['Tipo'] in ['Contador', 'Multi-Franja']:
+                    # Reducimos una unidad del contador original
+                    df_temp.at[i, 'Cantidad'] = int(row['Cantidad']) - 1
+                    # Si es multifranja y se acaba, marcamos como ocupado el original
+                    if row['Tipo'] == 'Multi-Franja' and df_temp.at[i, 'Cantidad'] == 0:
+                        df_temp.at[i, 'Responsable'] = 'Asignado'
                     
-                    # Inserción de la tarea individualizada
-                    id_max = int(df_proceso['ID'].max() + 1)
-                    nueva_fila_personal = pd.DataFrame([{
-                        'ID': id_max, 'Tarea': fila['Tarea'], 'Frecuencia': 'Puntual',
-                        'Tipo': 'Simple', 'Para': fila['Para'], 'Responsable': nombre_seleccionado,
+                    # Creamos la tarea individual para el usuario actual
+                    nueva_id = int(df_temp['ID'].max() + 1)
+                    nueva_fila = pd.DataFrame([{
+                        'ID': nueva_id, 'Tarea': row['Tarea'], 'Frecuencia': 'Puntual',
+                        'Tipo': 'Simple', 'Para': row['Para'], 'Responsable': user_actual,
                         'Estado': 'Pendiente', 'Franja': nombre_f, 'Cantidad': 1
                     }])
-                    df_proceso = pd.concat([df_proceso, nueva_fila_personal], ignore_index=True)
+                    df_temp = pd.concat([df_temp, nueva_fila], ignore_index=True)
                 else:
-                    # Lógica de asignación de tarea única
-                    df_proceso.at[idx_row, 'Responsable'] = nombre_seleccionado
-                    df_proceso.at[idx_row, 'Franja'] = nombre_f
-                    df_proceso.at[idx_row, 'Estado'] = 'Pendiente'
+                    # Asignación de tarea normal
+                    df_temp.at[i, 'Responsable'] = user_actual
+                    df_temp.at[i, 'Franja'] = nombre_f
+                    df_temp.at[i, 'Estado'] = 'Pendiente'
                 
-                if sincronizar_nube(df_proceso):
-                    st.toast("✅ Tarea guardada con éxito", icon="🎉")
+                if guardar_cambios_nube(df_temp):
                     st.rerun()
 else:
-    st.info("🌈 No hay tareas libres. ¡Buen momento para un descanso!")
+    st.info("🌈 No hay tareas pendientes ahora mismo. ¡Disfruta el día!")
 
-# ==========================================
-# 6. MI PANEL PERSONAL (TAREAS ASIGNADAS)
-# ==========================================
+# ==============================================================================
+# 6. PANEL PERSONAL Y SEGUIMIENTO
+# ==============================================================================
 st.divider()
-st.header(f"📋 Mis Tareas: {nombre_seleccionado}")
+st.header(f"📋 Mi Lista Personal ({len(mis_pendientes)})")
 
-if not mis_tareas_pendientes.empty:
-    for i, r in mis_tareas_pendientes.iterrows():
-        c_p1, c_p2 = st.columns([4, 1])
-        if c_p1.button(f"✅ Finalizar: {r['Tarea']} ({r['Franja']})", key=f"fin_user_{i}"):
+if not mis_pendientes.empty:
+    for i, row in mis_pendientes.iterrows():
+        cp1, cp2 = st.columns([4, 1])
+        if cp1.button(f"✅ Hecho: {row['Tarea']} ({row['Franja']})", key=f"check_{i}"):
             st.session_state.df.at[i, 'Estado'] = 'Hecho'
-            sincronizar_nube(st.session_state.df)
+            guardar_cambios_nube(st.session_state.df)
             st.rerun()
-        if c_p2.button("🔓", key=f"rel_user_{i}", help="Liberar tarea"):
-            if r['Frecuencia'] == 'Puntual':
+        if cp2.button("🔓", key=f"liberar_{i}", help="Devolver tarea al grupo"):
+            if row['Frecuencia'] == 'Puntual':
+                # Si es una copia de contador, se borra
                 st.session_state.df = st.session_state.df.drop(i)
             else:
+                # Si es fija, vuelve a estar libre
                 st.session_state.df.at[i, 'Responsable'], st.session_state.df.at[i, 'Franja'] = 'Sin asignar', '-'
-            sincronizar_nube(st.session_state.df)
+            guardar_cambios_nube(st.session_state.df)
             st.rerun()
-else:
-    st.write("Aún no te has asignado ninguna tarea para hoy.")
 
-# Historial de corrección
-if not mis_tareas_hechas.empty:
-    with st.expander("📂 Tareas que ya he terminado hoy (Haga clic para deshacer)"):
-        for i, r in mis_tareas_hechas.iterrows():
-            if st.button(f"🔄 Reabrir: {r['Tarea']}", key=f"undo_user_{i}"):
-                st.session_state.df.at[i, 'Estado'] = 'Pendiente'
-                sincronizar_nube(st.session_state.df)
-                st.rerun()
-
-# ==========================================
-# 7. VISTA GENERAL Y ESTADÍSTICAS
-# ==========================================
+# ==============================================================================
+# 7. VISTA GENERAL DE LA CASA
+# ==============================================================================
 st.divider()
-st.subheader("🏠 Resumen de Actividad en el Hogar")
-st.dataframe(
-    df_main[['Tarea', 'Responsable', 'Franja', 'Estado', 'Cantidad']], 
-    use_container_width=True, 
-    hide_index=True
-)
+st.subheader("🏠 Resumen de Actividad General")
+st.dataframe(df[['Tarea', 'Responsable', 'Franja', 'Estado', 'Cantidad']], 
+             use_container_width=True, hide_index=True)
 
-# ==========================================
-# 8. RUTINAS DE SALUD Y BIENESTAR
-# ==========================================
+# ==============================================================================
+# 8. RECOMENDACIONES DE RUTINA (EXTENDIDAS)
+# ==============================================================================
 st.divider()
-st.subheader("✨ Rutinas Diarias para un Hogar Saludable")
-col_r1, col_r2, col_r3, col_r4 = st.columns(4)
+st.subheader("✨ Consejos de Convivencia y Salud")
+r_col1, r_col2, r_col3, r_col4 = st.columns(4)
 
-with col_r1:
-    st.info("**🌬️ Aire Puro**\n\nVentila tu habitación al menos 15 minutos al despertar. Elimina el CO2 acumulado y mejora tu capacidad de concentración.")
-with col_r2:
-    st.info("**🧺 Orden Visual**\n\nHaz la cama y despeja superficies. Un entorno libre de desorden reduce los niveles de cortisol y el estrés mental.")
-with col_r3:
-    st.info("**🍎 Hidratación**\n\nBebe al menos 2 litros de agua y prioriza la fruta fresca. Tu energía depende directamente de la calidad de tu hidratación.")
-with col_r4:
-    st.info("**🧼 Higiene y Salud**\n\nDucha diaria y cepillado tras cada comida. El autocuidado personal refuerza la autoestima y la disciplina diaria.")
+with r_col1:
+    st.info("**🌬️ Ventilación**\n\nAbre las ventanas 15 minutos al levantarte. Renovar el aire oxigena el cerebro y mejora tu ánimo matutino.")
+with r_col2:
+    st.info("**🧺 Orden Personal**\n\nHaz la cama y recoge tu ropa. Un entorno despejado ayuda a mantener una mente enfocada y reduce el estrés.")
+with r_col3:
+    st.info("**🍎 Hidratación**\n\nBebe agua a menudo y prioriza la fruta. Tu cuerpo y mente funcionan mucho mejor con combustible natural.")
+with r_col4:
+    st.info("**🧼 Higiene**\n\nDucha diaria y limpieza dental. El autocuidado es fundamental para mantener la disciplina y el bienestar.")
 
-# ==========================================
+# ==============================================================================
 # 9. PANEL DE ADMINISTRACIÓN (SOLO PADRES)
-# ==========================================
-if es_padre:
+# ==============================================================================
+if es_admin:
     st.divider()
-    with st.expander("⚙️ CONFIGURACIÓN AVANZADA (MODO ADMINISTRADOR)"):
-        st.subheader("🛠️ Gestión de la Base de Datos")
-        st.write("Datos maestros actuales en la nube:")
-        st.dataframe(st.session_state.df)
-
-        st.divider()
-        st.subheader("➕ Añadir Nueva Tarea al Sistema")
-        ca1, ca2, ca3, ca4 = st.columns(4)
-        nombre_t = ca1.text_input("Nombre de la Tarea")
-        freq_t = ca2.selectbox("Frecuencia", ["Persistente", "Puntual"], help="Las persistentes se reinician, las puntuales se borran.")
-        tipo_t = ca3.selectbox("Tipo de Tarea", ["Simple", "Contador", "Multi-Franja"])
-        para_t = ca4.selectbox("Dirigido a", ["Hijos", "Padres", "Todos"])
+    with st.expander("⚙️ PANEL DE ADMINISTRADOR"):
+        st.subheader("➕ Añadir Nueva Tarea")
+        ad1, ad2, ad3, ad4 = st.columns(4)
+        n_tarea = ad1.text_input("Nombre de la Tarea")
+        n_freq = ad2.selectbox("Periodicidad", ["Persistente", "Puntual"])
+        n_tipo = ad3.selectbox("Tipo", ["Simple", "Contador", "Multi-Franja"])
+        n_para = ad4.selectbox("Dirigido a", ["Hijos", "Padres", "Todos"])
         
-        if st.button("🚀 Registrar Tarea en Google Sheets"):
-            if nombre_t:
-                nuevo_id = int(st.session_state.df['ID'].max() + 1)
-                nueva_entrada = pd.DataFrame([{
-                    'ID': nuevo_id, 'Tarea': nombre_t, 'Frecuencia': freq_t, 
-                    'Tipo': tipo_t, 'Para': para_t, 'Responsable': 'Sin asignar', 
+        if st.button("🚀 Registrar Tarea"):
+            if n_tarea:
+                n_id = int(st.session_state.df['ID'].max() + 1)
+                nueva = pd.DataFrame([{
+                    'ID': n_id, 'Tarea': n_tarea, 'Frecuencia': n_freq, 
+                    'Tipo': n_tipo, 'Para': n_para, 'Responsable': 'Sin asignar', 
                     'Estado': 'Pendiente', 'Franja': '-', 'Cantidad': 1
                 }])
-                sincronizar_nube(pd.concat([st.session_state.df, nueva_entrada], ignore_index=True))
+                guardar_cambios_nube(pd.concat([st.session_state.df, nueva], ignore_index=True))
                 st.rerun()
 
         st.divider()
-        st.subheader("🔢 Ajuste de Unidades (Lavadoras, Comidas, etc.)")
-        df_unidades = st.session_state.df[st.session_state.df['Tipo'].isin(['Contador', 'Multi-Franja'])]
-        for i, fila_u in df_unidades.iterrows():
-            ua, ub, uc = st.columns([3, 1, 1])
-            ua.write(f"**{fila_u['Tarea']}**: {int(fila_u['Cantidad'])} unidades restantes")
-            if ub.button("➕", key=f"add_unit_{i}"):
-                st.session_state.df.at[i, 'Cantidad'] += 1
-                sincronizar_nube(st.session_state.df); st.rerun()
-            if uc.button("➖", key=f"rem_unit_{i}"):
-                if st.session_state.df.at[i, 'Cantidad'] > 0:
-                    st.session_state.df.at[i, 'Cantidad'] -= 1
-                    sincronizar_nube(st.session_state.df); st.rerun()
-
-        st.divider()
-        st.subheader("🔄 Reinicio de Ciclo Diario")
-        if st.button("💾 FINALIZAR DÍA Y RESETEAR PANEL"):
-            # Regla del 08/02/2026:
-            # 1. Se eliminan las tareas marcadas como 'Puntual'
-            df_final = st.session_state.df[st.session_state.df['Frecuencia'] != 'Puntual'].copy()
-            # 2. Se limpian responsables y estados de las persistentes
-            df_final['Responsable'] = 'Sin asignar'
-            df_final['Estado'] = 'Pendiente'
-            df_final['Franja'] = '-'
-            # 3. Guardado final
-            sincronizar_nube(df_final)
-            st.success("Día reiniciado correctamente. Tareas puntuales eliminadas.")
+        st.subheader("🔄 Reinicio de Ciclo (Regla 08/02/2026)")
+        if st.button("💾 FINALIZAR DÍA Y REINICIAR"):
+            # Filtrar: Mantener persistentes, eliminar puntuales.
+            df_reset = st.session_state.df[st.session_state.df['Frecuencia'] != 'Puntual'].copy()
+            df_reset['Responsable'], df_reset['Estado'], df_reset['Franja'] = 'Sin asignar', 'Pendiente', '-'
+            guardar_cambios_nube(df_reset)
+            st.success("Panel reiniciado. ¡Listos para mañana!")
             st.rerun()
-
-# FIN DEL CÓDIGO
