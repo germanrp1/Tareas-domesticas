@@ -61,7 +61,7 @@ def create_pdf(df, p_globales, p_gastos, p_repartos, notas):
 
 # --- SIDEBAR (Valores por defecto solicitados) ---
 with st.sidebar:
-    st.header("⚙️ Ajustes Globales")
+    st.header("⚙️ Ajustes Globales - OPC Pago Aplazado")
     # Configurado por defecto: Precio Venta/Ud
     modo = st.radio("Calcular por:", ["Precio Venta/Ud", "Precio Compra", "Ben. Objetivo"], index=0)
     # 8 meses por defecto
