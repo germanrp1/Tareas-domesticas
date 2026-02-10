@@ -3,7 +3,7 @@ import pandas as pd
 from fpdf import FPDF
 
 # ##############################
-# Version V1k - CORREGIDA (Interruptor Visible)
+# Version V1k - VALORES POR DEFECTO
 # ##############################
 
 entorno = st.secrets.get("ENTORNO", "PRODUCCION")
@@ -14,7 +14,7 @@ if entorno == "DESARROLLO":
 else:
     st.sidebar.info("🚀 Modo Producción (Rama Main)")
 
-# Función PDF con los 3 bloques de parámetros solicitados
+# Función PDF Blindada
 def create_pdf(df, p_globales, p_gastos, p_repartos, notas):
     pdf = FPDF()
     pdf.add_page()
@@ -23,34 +23,18 @@ def create_pdf(df, p_globales, p_gastos, p_repartos, notas):
     pdf.set_font("Arial", "B", 16)
     pdf.cell(190, 10, "INFORME DETALLADO DE INVERSION JV".encode('windows-1252', 'ignore').decode('latin-1'), ln=True, align="C")
     
-    # BLOQUE A: AJUSTES GLOBALES
-    pdf.ln(5)
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(190, 8, "A. AJUSTES DEL ESCENARIO", ln=True)
-    pdf.set_font("Arial", "", 10)
-    for k, v in p_globales.items():
-        txt = f"{k}: {v}".replace("€", euro)
-        pdf.cell(190, 6, txt.encode('windows-1252', 'ignore').decode('latin-1'), ln=True)
+    # Bloques de Parámetros
+    for title, params in [("A. AJUSTES DEL ESCENARIO", p_globales), 
+                          ("B. COSTES Y DIMENSIONAMIENTO", p_gastos), 
+                          ("C. ACUERDOS DE REPARTO", p_repartos)]:
+        pdf.ln(5)
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(190, 8, title, ln=True)
+        pdf.set_font("Arial", "", 10)
+        for k, v in params.items():
+            txt = f"{k}: {v}".replace("€", euro)
+            pdf.cell(190, 6, txt.encode('windows-1252', 'ignore').decode('latin-1'), ln=True)
 
-    # BLOQUE B: GASTOS Y UNIDADES
-    pdf.ln(3)
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(190, 8, "B. COSTES Y DIMENSIONAMIENTO", ln=True)
-    pdf.set_font("Arial", "", 10)
-    for k, v in p_gastos.items():
-        txt = f"{k}: {v}".replace("€", euro)
-        pdf.cell(190, 6, txt.encode('windows-1252', 'ignore').decode('latin-1'), ln=True)
-
-    # BLOQUE C: ESTRUCTURA DE REPARTO
-    pdf.ln(3)
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(190, 8, "C. ACUERDOS DE REPARTO", ln=True)
-    pdf.set_font("Arial", "", 10)
-    for k, v in p_repartos.items():
-        txt = f"{k}: {v}".replace("€", euro)
-        pdf.cell(190, 6, txt.encode('windows-1252', 'ignore').decode('latin-1'), ln=True)
-
-    # TABLA
     pdf.ln(10)
     pdf.set_font("Arial", "B", 8)
     pdf.cell(50, 10, "Concepto", 1)
@@ -75,53 +59,55 @@ def create_pdf(df, p_globales, p_gastos, p_repartos, notas):
     
     return pdf.output(dest="S").encode('latin-1')
 
-# --- SIDEBAR ---
+# --- SIDEBAR (Valores por defecto solicitados) ---
 with st.sidebar:
     st.header("⚙️ Ajustes Globales")
-    modo = st.radio("Calcular por:", ["Precio Venta/Ud", "Precio Compra", "Ben. Objetivo"])
-    meses = st.number_input("Duración Inversión (meses):", value=4, min_value=1)
+    # Configurado por defecto: Precio Venta/Ud
+    modo = st.radio("Calcular por:", ["Precio Venta/Ud", "Precio Compra", "Ben. Objetivo"], index=0)
+    # 8 meses por defecto
+    meses = st.number_input("Duración Inversión (meses):", value=8, min_value=1)
     num_gestores = st.number_input("Nº de Gestores:", value=2, min_value=1)
     
-    if modo == "Precio Venta/Ud":
-        compra_fija = st.number_input("P. Compra Fijo (€):", value=750000.0)
-        label_esc, v1, v2, v3 = "Venta/Ud (€)", 1596000.0, 1500000.0, 1400000.0
-    elif modo == "Precio Compra":
-        label_esc, v1, v2, v3 = "Compra (€)", 750000.0, 800000.0, 850000.0
-        compra_fija = 750000.0
-    else:
-        label_esc, v1, v2, v3 = "Ben. Objetivo (€)", 400000.0, 300000.0, 200000.0
-        compra_fija = 750000.0
-
-    e1 = st.number_input(f"{label_esc} 1:", value=v1)
-    e2 = st.number_input(f"{label_esc} 2:", value=v2)
-    e3 = st.number_input(f"{label_esc} 3:", value=v3)
+    # Valores por defecto solicitados: 750k compra, ventas 200k, 215k, 228k
+    compra_fija = st.number_input("P. Compra Fijo (€):", value=750000.0)
+    e1 = st.number_input("Venta/Ud (€) 1:", value=200000.0)
+    e2 = st.number_input("Venta/Ud (€) 2:", value=215000.0)
+    e3 = st.number_input("Venta/Ud (€) 3:", value=228000.0)
 
 # --- CUERPO PRINCIPAL ---
-st.header("🏢 Analizador Pro JV - V1k")
+st.title("🏢 JV Analizador Pro - V1k")
 
-# INTERRUPTOR AHORA FUERA Y VISIBLE
-aplazado_on = st.toggle("🚀 Activar Modo Pago Aplazado", value=False)
+# INTERRUPTOR DE PAGO APLAZADO (En la parte superior para máxima visibilidad)
+aplazado_on = st.toggle("🚀 ACTIVAR MODO PAGO APLAZADO", value=False)
 
 with st.expander("🏠 Bloque Gastos y Unidades", expanded=True):
     c1, c2 = st.columns(2)
-    num_viviendas = c1.number_input("Nº de Viviendas:", value=1, min_value=1)
+    # 7 viviendas por defecto
+    num_viviendas = c1.number_input("Nº de Viviendas:", value=7, min_value=1)
+    # ITP 7% por defecto
     itp_pct = c2.number_input("ITP/IVA (%):", value=7.0)
     notaria = c1.number_input("Notaria/Tasación (€):", value=1500.0)
-    otros_g = c2.number_input("Otros gastos (€):", value=44000.0)
+    # Otros gastos 74k por defecto
+    otros_g = c2.number_input("Otros gastos (€):", value=74000.0)
+    # Reforma 300k por defecto
     reforma_total = c1.number_input("Reforma (€):", value=300000.0)
     desviacion = c2.number_input("Desviación (€):", value=30000.0)
     
     if aplazado_on:
-        st.info("💡 Modo Pago Aplazado: El Gestor aporta las Arras y el resto se paga con la venta.")
+        st.warning("⚠️ MODO PAGO APLAZADO ACTIVADO")
         arras_pct = st.slider("% Arras (Aporta Gestor):", 0, 20, 10)
     else:
         arras_pct = 0
 
 with st.expander("🤝 Bloque % Repartos", expanded=True):
     c3, c4 = st.columns(2)
-    ap_inv_pct = c3.number_input("% Aportación Inversor (sobre Gastos/Inversión):", value=94.0) / 100
+    # Aportación inversor 94% por defecto
+    ap_inv_pct = c3.number_input("% Aportación Inversor (s/Inversión):", value=94.0) / 100
     pct_is = c3.slider("% Impuesto Sociedades:", 0, 30, 0) / 100
-    metodo_rent = c4.selectbox("Método Rentabilidad Inversor:", ["% ROI fijo sobre Aportación", "% sobre Beneficio Proyecto"])
+    # Método ROI sobre aportación por defecto
+    metodo_rent = c4.selectbox("Método Rentabilidad Inversor:", 
+                             ["% ROI fijo sobre Aportación", "% sobre Beneficio Proyecto"], index=0)
+    # 15% beneficio por defecto
     r1_val = c4.number_input("Porcentaje Pactado (%):", value=15.0)
     r1_inv = r1_val / 100
 
@@ -132,16 +118,8 @@ escenarios = [e1, e2, e3]
 res = {}
 
 for val in escenarios:
-    if modo == "Precio Venta/Ud":
-        compra = compra_fija
-        v_total = val * num_viviendas
-    elif modo == "Precio Compra":
-        compra = val
-        v_total = 1596000.0 * num_viviendas
-    else:
-        v_total = 1596000.0 * num_viviendas
-        compra = (v_total - (val * num_viviendas) - reforma_total - desviacion - notaria - otros_g) / (1 + (itp_pct/100))
-
+    compra = compra_fija
+    v_total = val * num_viviendas
     itp_euro = compra * (itp_pct / 100)
     gastos_totales = itp_euro + notaria + otros_g + reforma_total + desviacion
     
@@ -149,8 +127,8 @@ for val in escenarios:
         arras_euro = compra * (arras_pct / 100)
         deuda_aplazada = compra - arras_euro
         inv_total_inicial = arras_euro + gastos_totales
-        c_total_gestor = arras_euro + (gastos_totales * (1 - ap_inv_pct))
         c_total_inversor = gastos_totales * ap_inv_pct
+        c_total_gestor = arras_euro + (gastos_totales * (1 - ap_inv_pct))
     else:
         deuda_aplazada = 0
         inv_total_inicial = compra + gastos_totales
@@ -185,17 +163,16 @@ indices = [
     "LIQUIDEZ: IVA Recup.", "LIQUIDEZ: Caja Final Total"
 ]
 
-df_res = pd.DataFrame(res, index=indices)
-st.table(df_res)
+st.table(pd.DataFrame(res, index=indices))
 
-# Parámetros para el PDF
-p_glob = {"Modo": modo, "Duración": f"{meses} meses", "Gestores": num_gestores}
-p_gast = {"Unidades": num_viviendas, "P. Compra": f"{compra:,.0f}€", "Reforma": f"{reforma_total:,.0f}€", "Aplazado": "SÍ" if aplazado_on else "NO"}
-p_repr = {"Aport. Inversor": f"{ap_inv_pct*100}%", "Rentabilidad": f"{r1_val}% {metodo_rent}"}
+# Parámetros PDF
+p_glob = {"Modo": modo, "Duración": f"{meses} meses", "Ventas Unit": f"{e1}, {e2}, {e3}"}
+p_gast = {"Unidades": num_viviendas, "P. Compra": f"{compra:,.0f}€", "ITP": f"{itp_pct}%", "Aplazado": "SI" if aplazado_on else "NO"}
+p_repr = {"Aport. Inv": f"{ap_inv_pct*100}%", "Aport. Ges": f"{(1-ap_inv_pct)*100}%", "Rentabilidad": f"{r1_val}% s/Aportación"}
 
 if st.button("🚀 Generar Informe PDF"):
     try:
-        pdf_bytes = create_pdf(df_res, p_glob, p_gast, p_repr, notas_input)
+        pdf_bytes = create_pdf(pd.DataFrame(res, index=indices), p_glob, p_gast, p_repr, notas_input)
         st.download_button("⬇️ Descargar PDF", pdf_bytes, "informe_v1k.pdf", "application/pdf")
     except Exception as e:
         st.error(f"Error PDF: {e}")
