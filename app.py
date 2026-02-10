@@ -3,19 +3,20 @@ import pandas as pd
 from fpdf import FPDF
 
 # ##############################
-# Version V1k - VALORES POR DEFECTO
+# Version V1k - REVISIÓN TOTAL VISIBILIDAD
 # ##############################
 
-entorno = st.secrets.get("ENTORNO", "PRODUCCION")
+# 1. Configuración de página y Entorno
 st.set_page_config(page_title="JV Analizador Pro", layout="wide")
+entorno = st.secrets.get("ENTORNO", "PRODUCCION")
 
 if entorno == "DESARROLLO":
     st.sidebar.warning("🛠️ Modo Desarrollo (Rama Dev)")
 else:
     st.sidebar.info("🚀 Modo Producción (Rama Main)")
 
-# Función PDF Blindada
-def create_pdf(df, p_globales, p_gastos, p_repartos, notas):
+# 2. Función PDF con Bloques de Parámetros
+def create_pdf(df, p_glob, p_gast, p_repr, notas):
     pdf = FPDF()
     pdf.add_page()
     euro = chr(128)
@@ -23,10 +24,9 @@ def create_pdf(df, p_globales, p_gastos, p_repartos, notas):
     pdf.set_font("Arial", "B", 16)
     pdf.cell(190, 10, "INFORME DETALLADO DE INVERSION JV".encode('windows-1252', 'ignore').decode('latin-1'), ln=True, align="C")
     
-    # Bloques de Parámetros
-    for title, params in [("A. AJUSTES DEL ESCENARIO", p_globales), 
-                          ("B. COSTES Y DIMENSIONAMIENTO", p_gastos), 
-                          ("C. ACUERDOS DE REPARTO", p_repartos)]:
+    for title, params in [("A. AJUSTES DEL ESCENARIO", p_glob), 
+                          ("B. COSTES Y DIMENSIONAMIENTO", p_gast), 
+                          ("C. ACUERDOS DE REPARTO", p_repr)]:
         pdf.ln(5)
         pdf.set_font("Arial", "B", 12)
         pdf.cell(190, 8, title, ln=True)
@@ -49,130 +49,104 @@ def create_pdf(df, p_globales, p_gastos, p_repartos, notas):
         for val in df.iloc[i]:
             pdf.cell(46, 8, str(val).replace("€", euro).encode('windows-1252', 'ignore').decode('latin-1'), 1, 0, 'C')
         pdf.ln()
-
+    
     if notas:
         pdf.ln(10)
         pdf.set_font("Arial", "B", 10)
-        pdf.cell(190, 8, "NOTAS ADICIONALES:", ln=True)
-        pdf.set_font("Arial", "", 9)
+        pdf.cell(190, 8, "NOTAS:", ln=True)
         pdf.multi_cell(190, 6, notas.encode('windows-1252', 'ignore').decode('latin-1'))
     
     return pdf.output(dest="S").encode('latin-1')
 
-# --- SIDEBAR (Valores por defecto solicitados) ---
+# --- VALORES POR DEFECTO SOLICITADOS ---
+#
 with st.sidebar:
     st.header("⚙️ Ajustes Globales")
-    # Configurado por defecto: Precio Venta/Ud
     modo = st.radio("Calcular por:", ["Precio Venta/Ud", "Precio Compra", "Ben. Objetivo"], index=0)
-    # 8 meses por defecto
-    meses = st.number_input("Duración Inversión (meses):", value=8, min_value=1)
-    num_gestores = st.number_input("Nº de Gestores:", value=2, min_value=1)
+    meses = st.number_input("Duración Inversión (meses):", value=8) # Valor: 8
+    num_gestores = st.number_input("Nº de Gestores:", value=2)
     
-    # Valores por defecto solicitados: 750k compra, ventas 200k, 215k, 228k
-    compra_fija = st.number_input("P. Compra Fijo (€):", value=750000.0)
-    e1 = st.number_input("Venta/Ud (€) 1:", value=200000.0)
-    e2 = st.number_input("Venta/Ud (€) 2:", value=215000.0)
-    e3 = st.number_input("Venta/Ud (€) 3:", value=228000.0)
+    st.divider()
+    compra_fija = st.number_input("P. Compra Fijo (€):", value=750000.0) # Valor: 750.000
+    e1 = st.number_input("Venta/Ud (€) 1:", value=200000.0) # Valor: 200.000
+    e2 = st.number_input("Venta/Ud (€) 2:", value=215000.0) # Valor: 215.000
+    e3 = st.number_input("Venta/Ud (€) 3:", value=228000.0) # Valor: 228.000
 
-# --- CUERPO PRINCIPAL ---
+# --- INTERRUPTOR DESTACADO ---
 st.title("🏢 JV Analizador Pro - V1k")
+col_int, _ = st.columns([1, 1])
+with col_int:
+    # Este es el interruptor que no veías. Ahora está fuera de cualquier bloque.
+    aplazado_on = st.toggle("🚀 ACTIVAR PAGO APLAZADO", value=False)
 
-# INTERRUPTOR DE PAGO APLAZADO (En la parte superior para máxima visibilidad)
-aplazado_on = st.toggle("🚀 ACTIVAR MODO PAGO APLAZADO", value=False)
-
-with st.expander("🏠 Bloque Gastos y Unidades", expanded=True):
+# --- BLOQUE GASTOS ---
+with st.expander("🏠 Bloque Gastos", expanded=True):
     c1, c2 = st.columns(2)
-    # 7 viviendas por defecto
-    num_viviendas = c1.number_input("Nº de Viviendas:", value=7, min_value=1)
-    # ITP 7% por defecto
-    itp_pct = c2.number_input("ITP/IVA (%):", value=7.0)
-    notaria = c1.number_input("Notaria/Tasación (€):", value=1500.0)
-    # Otros gastos 74k por defecto
-    otros_g = c2.number_input("Otros gastos (€):", value=74000.0)
-    # Reforma 300k por defecto
-    reforma_total = c1.number_input("Reforma (€):", value=300000.0)
-    desviacion = c2.number_input("Desviación (€):", value=30000.0)
+    num_viviendas = c1.number_input("Nº de Viviendas:", value=7) # Valor: 7
+    itp_pct = c2.number_input("ITP/IVA (%):", value=7.0) # Valor: 7%
+    notaria = c1.number_input("Notaria (€):", value=1500.0)
+    otros_g = c2.number_input("Otros gastos (€):", value=74000.0) # Valor: 74.000
+    reforma = c1.number_input("Reforma (€):", value=300000.0) # Valor: 300.000
+    desv = c2.number_input("Desviación (€):", value=30000.0)
     
     if aplazado_on:
-        st.warning("⚠️ MODO PAGO APLAZADO ACTIVADO")
-        arras_pct = st.slider("% Arras (Aporta Gestor):", 0, 20, 10)
+        st.success("✅ MODO APLAZADO: El capital inicial se reduce a Arras + Gastos.")
+        arras_pct = st.slider("% Arras (Gestor):", 0, 20, 10)
     else:
         arras_pct = 0
 
-with st.expander("🤝 Bloque % Repartos", expanded=True):
+# --- BLOQUE REPARTOS ---
+with st.expander("🤝 Bloque Repartos", expanded=True):
     c3, c4 = st.columns(2)
-    # Aportación inversor 94% por defecto
-    ap_inv_pct = c3.number_input("% Aportación Inversor (s/Inversión):", value=94.0) / 100
-    pct_is = c3.slider("% Impuesto Sociedades:", 0, 30, 0) / 100
-    # Método ROI sobre aportación por defecto
-    metodo_rent = c4.selectbox("Método Rentabilidad Inversor:", 
-                             ["% ROI fijo sobre Aportación", "% sobre Beneficio Proyecto"], index=0)
-    # 15% beneficio por defecto
-    r1_val = c4.number_input("Porcentaje Pactado (%):", value=15.0)
+    ap_inv_pct = c3.number_input("% Aportación Inversor:", value=94.0) / 100 # Valor: 94%
+    pct_is = c3.slider("% Sociedades:", 0, 30, 0)
+    metodo_rent = c4.selectbox("Método:", ["% ROI fijo sobre Aportación", "% sobre Beneficio Proyecto"], index=0)
+    r1_val = c4.number_input("Rentabilidad Pactada (%):", value=15.0) # Valor: 15%
     r1_inv = r1_val / 100
 
-notas_input = st.text_area("📝 Notas Adicionales:")
-
-# --- LÓGICA DE CÁLCULO ---
+# --- CÁLCULOS ---
 escenarios = [e1, e2, e3]
 res = {}
-
 for val in escenarios:
-    compra = compra_fija
     v_total = val * num_viviendas
-    itp_euro = compra * (itp_pct / 100)
-    gastos_totales = itp_euro + notaria + otros_g + reforma_total + desviacion
+    itp_euro = compra_fija * (itp_pct / 100)
+    gastos_tot = itp_euro + notaria + otros_g + reforma + desv
     
     if aplazado_on:
-        arras_euro = compra * (arras_pct / 100)
-        deuda_aplazada = compra - arras_euro
-        inv_total_inicial = arras_euro + gastos_totales
-        c_total_inversor = gastos_totales * ap_inv_pct
-        c_total_gestor = arras_euro + (gastos_totales * (1 - ap_inv_pct))
+        arras_euro = compra_fija * (arras_pct / 100)
+        c_inicial = arras_euro + gastos_tot
+        deuda = compra_fija - arras_euro
+        c_inv = gastos_tot * ap_inv_pct
+        c_ges = c_inicial - c_inv
     else:
-        deuda_aplazada = 0
-        inv_total_inicial = compra + gastos_totales
-        c_total_inversor = inv_total_inicial * ap_inv_pct
-        c_total_gestor = inv_total_inicial * (1 - ap_inv_pct)
+        c_inicial = compra_fija + gastos_tot
+        deuda = 0
+        c_inv = c_inicial * ap_inv_pct
+        c_ges = c_inicial * (1 - ap_inv_pct)
 
-    beneficio_bruto = v_total - inv_total_inicial - deuda_aplazada
-    neto_proyecto = beneficio_bruto * (1 - pct_is)
+    ben_neto = (v_total - c_inicial - deuda) * (1 - (pct_is/100))
+    g_inv = c_inv * r1_inv if metodo_rent == "% ROI fijo sobre Aportación" else ben_neto * r1_inv
+    g_ges = ben_neto - g_inv
     
-    if metodo_rent == "% sobre Beneficio Proyecto":
-        g_inv = neto_proyecto * r1_inv
-    else:
-        g_inv = c_total_inversor * r1_inv 
-    
-    g_ges = neto_proyecto - g_inv
-    recup_iva = (reforma_total + otros_g + desviacion) * 0.21
+    col_name = f"Venta:\n{v_total:,.0f}€"
+    res[col_name] = [f"{c_inicial:,.0f}€", f"{deuda:,.0f}€", f"{ben_neto:,.0f}€", "---",
+                     f"{c_inv:,.0f}€", f"{g_inv:,.0f}€", f"{(g_inv/c_inv)*100:.1f}%", "---",
+                     f"{c_ges:,.0f}€", f"{g_ges:,.0f}€", f"{(g_ges/(c_ges if c_ges>0 else 1))*100:.1f}%"]
 
-    col_head = f"Venta:\n{v_total:,.0f} €"
-    res[col_head] = [
-        f"{inv_total_inicial:,.0f}€", f"{deuda_aplazada:,.0f}€", f"{neto_proyecto:,.0f}€", "---",
-        f"{c_total_inversor:,.0f}€", f"{g_inv:,.0f}€", f"{(g_inv/c_total_inversor)*100:.1f}%", f"{(g_inv/c_total_inversor)*(12/meses)*100:.1f}%", "---",
-        f"{c_total_gestor:,.0f}€", f"{g_ges:,.0f}€", f"{(g_ges/c_total_gestor)*100:.1f}%", f"{(g_ges/c_total_gestor)*(12/meses)*100:.1f}%",
-        f"{c_total_gestor/num_gestores:,.0f}€", f"{g_ges/num_gestores:,.0f}€", f"{(g_ges/(c_total_gestor if c_total_gestor > 0 else 1))*100:.1f}%", "---",
-        f"{recup_iva:,.0f}€", f"{inv_total_inicial + neto_proyecto + recup_iva:,.0f}€"
-    ]
-
-indices = [
-    "PROYECTO: Capital Inicial", "PROYECTO: Pago Aplazado", "PROYECTO: Ben. Neto", "--- ",
-    "INVERSOR: Aportación", "INVERSOR: Beneficio", "INVERSOR: ROI (Proy)", "INVERSOR: ROI (Anual)", "---  ",
-    "GESTOR: Aportación Total", "GESTOR: Beneficio", "GESTOR: ROI (Proy)", "GESTOR: ROI (Anual)",
-    "CADA GESTOR: Aport.", "CADA GESTOR: Benef.", "CADA GESTOR: ROI (Total)", "---   ",
-    "LIQUIDEZ: IVA Recup.", "LIQUIDEZ: Caja Final Total"
-]
+indices = ["Capital Inicial", "Pago Aplazado", "Beneficio Neto", "---", 
+           "INV: Aportación", "INV: Ganancia", "INV: ROI", "---",
+           "GES: Aportación", "GES: Ganancia", "GES: ROI"]
 
 st.table(pd.DataFrame(res, index=indices))
 
-# Parámetros PDF
-p_glob = {"Modo": modo, "Duración": f"{meses} meses", "Ventas Unit": f"{e1}, {e2}, {e3}"}
-p_gast = {"Unidades": num_viviendas, "P. Compra": f"{compra:,.0f}€", "ITP": f"{itp_pct}%", "Aplazado": "SI" if aplazado_on else "NO"}
-p_repr = {"Aport. Inv": f"{ap_inv_pct*100}%", "Aport. Ges": f"{(1-ap_inv_pct)*100}%", "Rentabilidad": f"{r1_val}% s/Aportación"}
-
-if st.button("🚀 Generar Informe PDF"):
+# 4. Generación PDF
+notas = st.text_area("Notas:")
+if st.button("🚀 Generar PDF"):
     try:
-        pdf_bytes = create_pdf(pd.DataFrame(res, index=indices), p_glob, p_gast, p_repr, notas_input)
-        st.download_button("⬇️ Descargar PDF", pdf_bytes, "informe_v1k.pdf", "application/pdf")
+        p_g = {"Modo": modo, "Meses": meses, "Viviendas": num_viviendas}
+        p_gs = {"Compra": compra_fija, "ITP": itp_pct, "Reforma": reforma}
+        p_r = {"Aport. Inv": f"{ap_inv_pct*100}%", "ROI Pactado": f"{r1_val}%"}
+        pdf_out = create_pdf(pd.DataFrame(res, index=indices), p_g, p_gs, p_r, notas)
+        st.download_button("⬇️ Descargar", pdf_out, "informe.pdf", "application/pdf")
     except Exception as e:
-        st.error(f"Error PDF: {e}")
+        st.error(f"Error: {e}")
