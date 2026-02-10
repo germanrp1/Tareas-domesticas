@@ -18,6 +18,8 @@ st.markdown("""
 # ==============================================================================
 # 2. CONEXIÓN Y PERSISTENCIA
 # ==============================================================================
+#conn = st.connection("gsheets", type=GSheetsConnection)
+# Asegúrate de que la conexión se defina con el tipo correcto
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def cargar_datos():
