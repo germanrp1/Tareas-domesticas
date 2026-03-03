@@ -185,13 +185,31 @@ if es_admin:
         
         with tab1:
             c1, c2 = st.columns(2)
-            if c1.button("🔄 MODO 1: Recarga Forzada"):
+            
+            # --- CORRECCIÓN: Limpieza profunda antes de recargar ---
+            if c1.button("🔄 MODO 1: Recarga Forzada (Pruebas)"):
+                # Eliminamos el estado actual para forzar la lectura fresca
+                if 'df' in st.session_state:
+                    del st.session_state.df
+                
+                # Recargamos
                 st.session_state.df = cargar_datos()
+                st.info("Sincronización total completada. Estado limpio.")
                 st.rerun()
+                
             if c2.button("💾 MODO 2: Reinicio Próximo Día"):
-                df_reset = st.session_state.df[st.session_state.df['Frecuencia'] != 'Puntual'].copy()
-                df_reset['Responsable'], df_reset['Estado'], df_reset['Franja'] = 'Sin asignar', 'Pendiente', '-'
-                if guardar_datos(df_reset): st.balloons(); st.rerun()
+                df_actual = st.session_state.df.copy()
+                # 1. Eliminar tareas puntuales (clones de contadores)
+                df_reset = df_actual[df_actual['Frecuencia'] != 'Puntual'].copy()
+                # 2. Resetear valores a estado inicial
+                df_reset['Responsable'] = 'Sin asignar'
+                df_reset['Estado'] = 'Pendiente'
+                df_reset['Franja'] = '-'
+                # 3. Guardamos los cambios en el Excel
+                if guardar_datos(df_reset):
+                    st.balloons()
+                    st.success("Reinicio diario aplicado en la Hoja de Cálculo")
+                    st.rerun()
 
         with tab2:
             st.subheader("Añadir Tarea Permanente")
