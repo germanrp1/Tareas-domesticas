@@ -81,7 +81,7 @@ mis_finalizadas = df[(df['Responsable'] == user_actual) & (df['Estado'] == 'Hech
 # ==========================================
 # 5. INTERFAZ PRINCIPAL
 # ==========================================
-st.title("🏠 GESTI Hogar PRO 6.7")
+st.title("🏠 GESTI Hogar PRO 6.7a")
 st.caption("Gestión inteligente de tareas domésticas sincronizada en tiempo real.")
 
 # --- SECCIÓN A: TAREAS DISPONIBLES ---
